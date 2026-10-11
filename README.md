@@ -111,9 +111,12 @@ php artisan serve --port=9133
 
 ## 📡 Exemplos de Uso
 
+Todas as requisições direcionadas ao proxy devem incluir a sua **Chave Master** configurada em `ELEVENLABS_MASTER_KEY` via cabeçalho `xi-api-key`, `X-Api-Key` ou `Authorization: Bearer <master_key>`.
+
 ### 1. Consultar Saúde e Saldo de Cada Chave da Pool
 ```bash
-curl http://localhost:9133/api/pool/status
+curl http://localhost:9133/api/pool/status \
+  -H "xi-api-key: SUA_CHAVE_MASTER_AQUI"
 ```
 
 **Exemplo de Resposta:**
@@ -147,10 +150,11 @@ curl http://localhost:9133/api/pool/status
 ---
 
 ### 2. Sintetizar Áudio (TTS) via Proxy
-Faça a mesma chamada que faria para `https://api.elevenlabs.io`, alterando apenas o host para o seu container local:
+Faça a mesma chamada que faria para `https://api.elevenlabs.io`, mantendo o mesmo cabeçalho `xi-api-key` com a sua Chave Master:
 
 ```bash
 curl -X POST "http://localhost:9133/v1/text-to-speech/CwhRBWXzGAHq8TQ4Fs17" \
+  -H "xi-api-key: SUA_CHAVE_MASTER_AQUI" \
   -H "Content-Type: application/json" \
   -H "Accept: audio/mpeg" \
   -d '{
@@ -164,7 +168,8 @@ curl -X POST "http://localhost:9133/v1/text-to-speech/CwhRBWXzGAHq8TQ4Fs17" \
 
 ### 3. Listar Vozes Disponíveis
 ```bash
-curl http://localhost:9133/v1/voices
+curl http://localhost:9133/v1/voices \
+  -H "xi-api-key: SUA_CHAVE_MASTER_AQUI"
 ```
 
 ---

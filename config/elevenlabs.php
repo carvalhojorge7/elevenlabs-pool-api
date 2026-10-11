@@ -33,4 +33,13 @@ return [
     */
     'cooldown_minutes' => (int) env('ELEVENLABS_COOLDOWN_MINUTES', 30),
     'timeout' => (int) env('ELEVENLABS_REQUEST_TIMEOUT', 60),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chave Master do Proxy
+    |--------------------------------------------------------------------------
+    | Chave necessária para autenticar requisições no nosso proxy reverso.
+    | Pode ser enviada via header 'xi-api-key', 'X-Api-Key' ou 'Authorization: Bearer <key>'.
+    */
+    'master_key' => env('ELEVENLABS_MASTER_KEY', null),
 ];
