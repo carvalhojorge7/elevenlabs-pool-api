@@ -1,0 +1,32 @@
+services:
+  elevenlabs-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: elevenlabs-pool-api
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-9133}:8000"
+    environment:
+      - APP_NAME=${APP_NAME:-Laravel}
+      - APP_ENV=${APP_ENV:-production}
+      - APP_KEY=${APP_KEY}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_URL=${APP_URL:-http://localhost:9133}
+      - ELEVENLABS_BASE_URL=${ELEVENLABS_BASE_URL:-https://api.elevenlabs.io}
+      - ELEVENLABS_API_KEYS=${ELEVENLABS_API_KEYS}
+      - ELEVENLABS_DEFAULT_VOICE_ID=${ELEVENLABS_DEFAULT_VOICE_ID:-CwhRBWXzGAHq8TQ4Fs17}
+      - ELEVENLABS_DEFAULT_MODEL_ID=${ELEVENLABS_DEFAULT_MODEL_ID:-eleven_v4_turbo}
+      - ELEVENLABS_COOLDOWN_MINUTES=${ELEVENLABS_COOLDOWN_MINUTES:-30}
+      - ELEVENLABS_REQUEST_TIMEOUT=${ELEVENLABS_REQUEST_TIMEOUT:-60}
+      - DB_CONNECTION=sqlite
+      - CACHE_STORE=database
+      - SESSION_DRIVER=database
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./database:/var/www/html/database
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
