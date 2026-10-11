@@ -73,17 +73,27 @@ O principal objetivo do projeto é gerenciar uma **Pool de Chaves de API**, real
    cp .env.example .env
    ```
 
-3. Configure suas chaves e porta no `.env`:
+3. Configure suas chaves, segurança e porta no `.env`:
    ```env
+   # Porta onde a API será exposta (Docker ou Local)
    APP_PORT=9133
    APP_URL=http://localhost:9133
 
-   # Insira suas chaves separadas por vírgula
+   # CHAVE MASTER DE PROTEÇÃO DO PROXY (Obrigatória para os clientes autenticarem nas suas rotas)
+   # Os clientes devem enviar esta chave no cabeçalho 'xi-api-key' ou 'Authorization: Bearer <chave>'
+   ELEVENLABS_MASTER_KEY=sua_chave_master_secreta_aqui
+
+   # POOL DE CHAVES REAIS DA ELEVENLABS (Separadas por vírgula, sem espaços)
+   # O proxy fará rotação contínua (Round-Robin) e failover automático entre elas
    ELEVENLABS_API_KEYS=sk_chave1_aqui,sk_chave2_aqui,sk_chave3_aqui
 
    # Narrador padrão e modelo desejado
    ELEVENLABS_DEFAULT_VOICE_ID=CwhRBWXzGAHq8TQ4Fs17
    ELEVENLABS_DEFAULT_MODEL_ID=eleven_v4_turbo
+
+   # Tempo em minutos que uma chave fica suspensa ao atingir limite (429/401)
+   ELEVENLABS_COOLDOWN_MINUTES=30
+   ELEVENLABS_REQUEST_TIMEOUT=60
    ```
 
 4. Suba o container:
