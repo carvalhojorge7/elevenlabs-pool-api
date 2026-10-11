@@ -1,107 +1,198 @@
-# 🎙️ ElevenLabs Pool API (Laravel)
+# 🎙️ ElevenLabs Pool API
 
-Uma API desenvolvida em **Laravel** que atua como proxy reverso transparente e espelho fiel da API oficial da [ElevenLabs](https://elevenlabs.io/), com balanceamento de carga, rotação inteligente de chaves de API (Round-Robin) e tolerância automática a falhas (Failover / Cooldown em caso de cota excedida - HTTP 429).
+<p align="center">
+  <img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="300" alt="Laravel Logo">
+</p>
 
----
+Uma API robusta e leve desenvolvida em **Laravel 12 / PHP 8.3** que atua como **Proxy Reverso Inteligente** e espelho fiel da API oficial da [ElevenLabs](https://elevenlabs.io/).
 
-## 🚀 Funcionalidades
-
-- **Espelhamento Transparente:** Aceita as mesmas requisições (métodos HTTP, query strings, headers e payloads JSON/multipart) para qualquer rota `/v1/{path}` e repassa para a ElevenLabs.
-- **Pool de Chaves Inteligente:** Rotação contínua (Round-Robin) entre as chaves cadastradas no `.env`.
-- **Failover Automático:** Se uma chave atingir o limite de requisições ou créditos (HTTP 429), ela entra em cooldown temporário via cache e a requisição é automaticamente atendida pela próxima chave disponível.
-- **Streaming de Áudio Binário:** Suporte nativo a áudio `audio/mpeg` para endpoints de Text-to-Speech (TTS).
-- **Monitoramento do Pool:** Endpoint `/api/pool/status` informando o saldo de caracteres restantes, uso e estado de cada chave.
-- **Comando de Teste Real:** Teste automatizado (`php artisan elevenlabs:test-pool`) para validação de saldo e síntese de áudio com contagem autoincrementada e palavras complexas em português.
+O principal objetivo do projeto é gerenciar uma **Pool de Chaves de API**, realizando balanceamento contínuo (**Round-Robin**) e **Failover Automático** caso alguma chave esgote seus créditos ou atinja rate limit (HTTP 429), garantindo alta disponibilidade e transparência total para suas aplicações consumidoras.
 
 ---
 
-## 🛠️ Requisitos
+## ✨ Principais Funcionalidades
 
-- PHP >= 8.2 (testado em PHP 8.3)
-- Composer 2.x
-- Extensões PHP padrão do Laravel (cURL, OpenSSL, SQLite/PDO)
+- **🔄 Espelhamento Fiel da API ElevenLabs**:
+  - Aceita requisições idênticas em `/v1/{endpoint}` (ou `/api/v1/{endpoint}`) repassando métodos HTTP (`GET`, `POST`, `DELETE`, etc.), cabeçalhos, parâmetros de query e payloads JSON ou multipart.
+- **🏊 Gestão e Rotação de Pool de Chaves**:
+  - Cadastro de múltiplas chaves separadas por vírgula no `.env`.
+  - Rotação contínua Round-Robin distribuindo o consumo de caracteres entre as contas.
+- **🛡️ Tolerância a Falhas e Failover Imediato**:
+  - Se a chave da rodada retornar HTTP `429 (Too Many Requests / Cota Excedida)` ou erro de créditos, ela entra automaticamente em **cooldown temporário** (Cache/Redis) e a requisição é atendida na mesma hora pela próxima chave disponível.
+- **🔊 Streaming de Áudio Binário Nativo**:
+  - Suporte completo a transferência em streaming (`audio/mpeg` / Chunked Transfer) para endpoints de síntese de voz (TTS - `/v1/text-to-speech/{voice_id}`).
+- **📊 Healthcheck e Monitoramento do Pool**:
+  - Endpoint `/api/pool/status` que consulta a API da ElevenLabs e relata em tempo real o plano (Tier), total de caracteres consumidos, limite e saldo restante de cada chave da pool.
+- **🐳 100% Dockerizado**:
+  - Imagem otimizada baseada em Alpine Linux com porta configurável diretamente no `.env` (ex: `9133`).
+- **🧪 Comandos Artisan de Teste e Amostras**:
+  - `php artisan elevenlabs:test-pool`: Testa a obtenção de saldo de cada chave real, rotação e gera áudio sequencial autoincrementado com palavras complexas em português.
+  - `php artisan elevenlabs:samples`: Sintetiza amostras das principais vozes da sua conta com o modelo configurado (ex: `eleven_v4_turbo`) para decisão de narrador.
 
 ---
 
-## ⚙️ Instalação e Configuração
+## 🏗️ Arquitetura do Sistema
 
-1. Clone o repositório ou navegue até o diretório:
+```
+                             ┌───────────────────────────────────────────────┐
+                             │          ElevenLabs Pool API                  │
+                             │               (Laravel 12)                    │
+                             │                                               │
+   [Cliente / Frontend] ───► │  [ElevenLabsProxyController]                  │
+  (GET/POST /v1/{endpoint})   │                 │                             │
+                             │                 ▼                             │
+                             │     [ElevenLabsProxyService]                  │
+                             │                 ▲                             │
+                             │                 │ (Pega próxima chave ativa)  │
+                             │        [KeyPoolManager] ◄─── (Cache / SQLite) │
+                             │          • Round-Robin                        │
+                             │          • Cooldown em 429 / 401              │
+                             └─────────┬─────────────────────────────────────┘
+                                       │
+                              (Injeta cabeçalho xi-api-key)
+                                       │
+                                       ▼
+                       [API Oficial da ElevenLabs]
+                     (https://api.elevenlabs.io/v1/...)
+```
+
+---
+
+## 🚀 Como Executar
+
+### Opção 1: Via Docker Compose (Recomendado)
+
+1. Clone o repositório:
    ```bash
-   cd "elevenlabs-pool-api"
+   git clone git@github.com:carvalhojorge7/elevenlabs-pool-api.git
+   cd elevenlabs-pool-api
    ```
 
-2. Instale as dependências:
+2. Crie seu arquivo `.env`:
    ```bash
-   composer install
+   cp .env.example .env
    ```
 
-3. Configure as variáveis de ambiente no `.env`:
+3. Configure suas chaves e porta no `.env`:
    ```env
-   # Lista de chaves reais da ElevenLabs separadas por vírgula
-   ELEVENLABS_API_KEYS=chave_1,chave_2,chave_3
+   APP_PORT=9133
+   APP_URL=http://localhost:9133
 
-   # ID da voz padrão (ex: eUAnqvLQWNX29twcYLUM)
-   ELEVENLABS_DEFAULT_VOICE_ID=eUAnqvLQWNX29twcYLUM
+   # Insira suas chaves separadas por vírgula
+   ELEVENLABS_API_KEYS=sk_chave1_aqui,sk_chave2_aqui,sk_chave3_aqui
 
-   # Modelo multilíngue (recomendado para português natural)
-   ELEVENLABS_DEFAULT_MODEL_ID=eleven_multilingual_v2
-
-   # Tempo em minutos para uma chave com erro 429 ficar suspensa
-   ELEVENLABS_COOLDOWN_MINUTES=30
+   # Narrador padrão e modelo desejado
+   ELEVENLABS_DEFAULT_VOICE_ID=CwhRBWXzGAHq8TQ4Fs17
+   ELEVENLABS_DEFAULT_MODEL_ID=eleven_v4_turbo
    ```
 
-4. Execute as migrations para o banco SQLite local (utilizado para cache e sessões):
+4. Suba o container:
    ```bash
-   php artisan migrate
+   docker compose up -d --build
    ```
 
----
-
-## 🧪 Teste Real com as Chaves (Sem Fakes)
-
-Para validar a integridade das suas chaves reais, verificar o saldo de caracteres de cada uma e testar a rotação gravando os áudios em disco:
-
-```bash
-php artisan elevenlabs:test-pool --iterations=2
-```
-
-O comando irá:
-1. Consultar a assinatura de cada chave (`/v1/user/subscription`) e imprimir uma tabela com os créditos restantes.
-2. Executar chamadas alternadas gerando áudios no padrão:
-   > *"Este é o teste número 1 e a palavra chave é: Otorrinolaringologista."*  
-   > *"Este é o teste número 2 e a palavra chave é: Inconstitucionalissimamente."*
-3. Salvar os arquivos `.mp3` em `storage/app/testing_audio/`.
-4. Mostrar no console qual chave da pool atendeu cada requisição.
+A API estará disponível imediatamente em: `http://localhost:9133`
 
 ---
 
-## 🌐 Endpoints da API
+### Opção 2: Localmente (Sem Docker)
 
-Inicie o servidor de desenvolvimento:
+Requisitos: **PHP >= 8.2**, **Composer 2.x** e extensão **SQLite**.
+
 ```bash
-php artisan serve
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve --port=9133
 ```
 
-### 1. Monitoramento do Pool
-```http
-GET /api/pool/status
+---
+
+## 📡 Exemplos de Uso
+
+### 1. Consultar Saúde e Saldo de Cada Chave da Pool
+```bash
+curl http://localhost:9133/api/pool/status
 ```
-Retorna um JSON detalhado com o total de chaves ativas, saldo em caracteres de cada uma e histórico de requisições.
+
+**Exemplo de Resposta:**
+```json
+{
+  "total_keys": 2,
+  "available_keys_count": 2,
+  "keys": [
+    {
+      "key_masked": "sk_4...5bce",
+      "status": "active",
+      "requests_count": 12,
+      "tier": "free",
+      "character_count": 3995,
+      "character_limit": 10000,
+      "remaining_characters": 6005
+    },
+    {
+      "key_masked": "sk_8...9fa1",
+      "status": "active",
+      "requests_count": 11,
+      "tier": "starter",
+      "character_count": 12400,
+      "character_limit": 30000,
+      "remaining_characters": 17600
+    }
+  ]
+}
+```
+
+---
 
 ### 2. Sintetizar Áudio (TTS) via Proxy
-Exatamente como na API oficial da ElevenLabs, utilizando o endpoint local:
+Faça a mesma chamada que faria para `https://api.elevenlabs.io`, alterando apenas o host para o seu container local:
+
 ```bash
-curl -X POST "http://localhost:8000/v1/text-to-speech/eUAnqvLQWNX29twcYLUM" \
+curl -X POST "http://localhost:9133/v1/text-to-speech/CwhRBWXzGAHq8TQ4Fs17" \
   -H "Content-Type: application/json" \
   -H "Accept: audio/mpeg" \
   -d '{
-    "text": "Olá! Esta é uma demonstração da API de pool de chaves em Laravel.",
-    "model_id": "eleven_multilingual_v2"
+    "text": "Olá! Esta é uma requisição passando pela nossa pool de chaves da ElevenLabs.",
+    "model_id": "eleven_v4_turbo"
   }' \
   --output narracao.mp3
 ```
 
+---
+
 ### 3. Listar Vozes Disponíveis
 ```bash
-curl -X GET "http://localhost:8000/v1/voices"
+curl http://localhost:9133/v1/voices
 ```
+
+---
+
+## 🧪 Comandos Utilitários via CLI
+
+Você pode executar os comandos Artisan dentro do container ou na máquina local:
+
+- **Testar saldo, rotação e gerar áudio de teste com palavras difíceis em PT-BR:**
+  ```bash
+  docker compose exec elevenlabs-api php artisan elevenlabs:test-pool --iterations=2
+  ```
+
+- **Gerar amostras de vozes disponíveis na conta:**
+  ```bash
+  docker compose exec elevenlabs-api php artisan elevenlabs:samples --model=eleven_v4_turbo
+  ```
+
+---
+
+## 🔒 Segurança
+
+- O repositório **nunca** armazena credenciais ou chaves reais (`.env` está no `.gitignore`).
+- As chaves de API têm sua visualização mascarada nos endpoints públicos e logs (ex: `sk_4...5bce`).
+- Os arquivos de áudio temporários gerados em testes locais também são ignorados pelo Git.
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença [MIT](LICENSE).
