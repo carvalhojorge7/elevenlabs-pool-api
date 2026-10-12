@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.env.backup
+.env.production
+storage/app/testing_audio
+vendor
+node_modules
+tests
